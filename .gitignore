@@ -1,0 +1,21 @@
+# artifacts / envs
+.venv/
+.venv_*/
+__pycache__/
+*.pyc
+build/
+build_*/
+*.o
+*.a
+*.so
+# model weights & outputs (not redistributed)
+*.pt
+*.pth
+*.ckpt
+*.onnx
+outputs/
+runs/
+logs/
+wandb/
+*.mp4
+*.bak

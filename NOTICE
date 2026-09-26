@@ -1,0 +1,16 @@
+humanoid_motion_mimic
+
+This project is a derivative work based on:
+  NVlabs/GR00T-WholeBodyControl
+  https://github.com/NVlabs/GR00T-WholeBodyControl
+  Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES.
+  Source code licensed under the Apache License, Version 2.0.
+
+Modifications by J1N462 (2026):
+  - gear_sonic/envs/manager_env/mdp/delayed_actions.py (new): delayed action MDP term
+  - gear_sonic/envs/manager_env/mdp/__init__.py: register the new term
+  - gear_sonic/config/manager_env/actions/terms/joint_pos.yaml: action term config
+  - gear_sonic_deploy/g1_deploy_onnx_ref/*: G1 ONNX real-robot deployment reference
+  - gear_sonic_deploy/*/CMakeLists.txt: build configuration
+
+Model weights (NVIDIA Open Model License) are NOT included in this repository.
