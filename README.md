@@ -1,8 +1,8 @@
 # humanoid_motion_mimic
 
 ## 데모
-원본영상 : https://youtube.com/shorts/83gk2eQ16Wc?si=V3EW7PIMmvTLhBGK
-데모 : https://youtube.com/shorts/J-RW6SlCspA?feature=share
+- 원본영상 : https://youtube.com/shorts/83gk2eQ16Wc?si=V3EW7PIMmvTLhBGK
+- 데모 : https://youtube.com/shorts/J-RW6SlCspA?feature=share
 
 ## 파이프라인 개요
 유튜브 영상 → 사람 모션 추출 → G1 리타게팅 → 정책 학습 → **실기 ONNX 배포**
