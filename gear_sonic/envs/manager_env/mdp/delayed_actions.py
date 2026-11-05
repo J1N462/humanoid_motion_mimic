@@ -1,24 +1,25 @@
-"""제어 지연 랜덤화 액션.
+"""Action with randomized control delay.
 
-실기에서 명령은 즉시 먹지 않는다 (온보드 실측 20~48 ms). 지연 없이 학습한 정책은
-실기에서 균형 보정이 늦게 도착해 과보정으로 발산한다.
+On the real robot, commands do not take effect immediately (measured onboard: 20~48 ms).
+A policy trained without delay receives its balance corrections late on the real robot
+and diverges from over-correction.
 
-MuJoCo 측정 (지연 랜덤화 없이 학습한 현재 정책):
-    지연  0 ms  서 있음 (골반 0.435 m)
-    지연 20 ms  서 있음 (골반 0.425 m)
-    지연 40 ms  넘어짐 (골반 0.283 m)   <- 실기 overrun 구간이 여기에 걸린다
+MuJoCo measurements (current policy, trained without delay randomization):
+    delay  0 ms  standing (pelvis 0.435 m)
+    delay 20 ms  standing (pelvis 0.425 m)
+    delay 40 ms  fell     (pelvis 0.283 m)   <- the real-robot overrun range falls here
 
-목표 위치를 원형 버퍼에 넣고, 환경마다 뽑은 지연만큼 지난 값을 적용한다.
-지연은 에피소드마다 다시 뽑고 에피소드 안에서는 고정한다 (실기 지연도 한 실행
-안에서는 안정적이다).
+Target positions are pushed into a ring buffer, and each env applies the value from
+its sampled number of steps ago. The delay is resampled every episode and fixed within
+an episode (real-robot delay is also stable within one run).
 
-사용 (joint_pos.yaml):
+Usage (joint_pos.yaml):
     joint_pos:
       _target_: gear_sonic.envs.manager_env.mdp.delayed_actions.DelayedJointPositionActionCfg
       asset_name: "robot"
       joint_names: [".*"]
       use_default_offset: true
-      max_delay_steps: 2        # 제어주기 20ms -> 0~40ms 를 겪으며 배운다
+      max_delay_steps: 2        # 20 ms control period -> trains under 0~40 ms delay
 """
 
 from __future__ import annotations
@@ -36,7 +37,7 @@ if TYPE_CHECKING:
 
 
 class DelayedJointPositionAction(JointPositionAction):
-    """관절 위치 목표를 0~max_delay_steps tick 늦게 적용한다."""
+    """Applies joint position targets 0~max_delay_steps ticks late."""
 
     def __init__(self, cfg: "DelayedJointPositionActionCfg", env: "ManagerBasedEnv"):
         super().__init__(cfg, env)
@@ -52,14 +53,14 @@ class DelayedJointPositionAction(JointPositionAction):
         )
         self._env_idx = torch.arange(self.num_envs, device=self.device)
 
-        # 버퍼를 기본 관절 위치로 채운다 (0 으로 두면 "모든 관절 0" 목표가 나가 로봇을 찢는다)
+        # Fill the buffer with default joint positions (leaving zeros would send an "all joints 0" target and tear the robot apart)
         default_q = self._asset.data.default_joint_pos[:, self._joint_ids]
         self._delay_buf[:] = default_q.unsqueeze(0)
 
     def apply_actions(self):
-        # 이번 tick 의 목표를 버퍼에 쓴다
+        # Write this tick's target into the buffer
         self._delay_buf[self._head] = self.processed_actions
-        # 환경마다 자기 지연만큼 지난 값을 읽는다
+        # Each env reads the value from its own delay ago
         idx = (self._head - self._delay) % self._buf_len
         delayed = self._delay_buf[idx, self._env_idx]
         self._asset.set_joint_position_target(delayed, joint_ids=self._joint_ids)
@@ -69,10 +70,10 @@ class DelayedJointPositionAction(JointPositionAction):
         super().reset(env_ids)
         if env_ids is None:
             env_ids = slice(None)
-        # 리셋된 환경의 버퍼를 현재 관절 위치로 채운다
+        # Fill the buffer of reset envs with their current joint positions
         q = self._asset.data.joint_pos[env_ids][:, self._joint_ids]
         self._delay_buf[:, env_ids] = q.unsqueeze(0)
-        # 에피소드마다 지연을 다시 뽑는다
+        # Resample the delay every episode
         n = self.num_envs if isinstance(env_ids, slice) else len(env_ids)
         self._delay[env_ids] = torch.randint(
             0, self._buf_len, (n,), device=self.device, dtype=torch.long
@@ -81,9 +82,9 @@ class DelayedJointPositionAction(JointPositionAction):
 
 @configclass
 class DelayedJointPositionActionCfg(actions_cfg.JointPositionActionCfg):
-    """DelayedJointPositionAction 설정."""
+    """Config for DelayedJointPositionAction."""
 
     class_type: type = DelayedJointPositionAction
 
     max_delay_steps: int = 2
-    """지연 상한 (tick). 제어주기 20ms 기준 2 면 0~40ms."""
+    """Maximum delay (ticks). With a 20 ms control period, 2 means 0~40 ms."""
